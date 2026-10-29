@@ -615,6 +615,19 @@ def main():
     cfg = Config()
     logging.basicConfig(level=getattr(logging, cfg.log_level, logging.INFO),
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s", stream=sys.stdout)
+    if cfg.strategy == "ema":                         # solo herramienta de investigacion (barrido)
+        from . import ema_backtest
+        bot = Bot(cfg)
+        if cfg.run_mode != "backtest":
+            bot.tg.send("ℹ️ STRATEGY=ema solo sirve para investigar: pon RUN_MODE=backtest.")
+            idle("STRATEGY=ema requiere RUN_MODE=backtest")
+        try:
+            ema_backtest.run_backtest(bot)
+        except Exception as e:                       # noqa: BLE001
+            log.exception("fallo en el barrido EMA")
+            bot.tg.send(f"⛔ Error en el barrido EMA: {esc(repr(e)[:300])}")
+        bot.tg.send("ℹ️ Terminado. Cambia STRATEGY y RUN_MODE=bot en Railway para volver a las señales.")
+        idle("barrido EMA terminado")
     if cfg.strategy == "qs":
         from .qs_bot import QSBot
         bot_cls = QSBot

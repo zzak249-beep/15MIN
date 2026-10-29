@@ -23,6 +23,14 @@ el archivo de estado es `lce_15m_state.json` y los mensajes de Telegram llevan `
 `RUN_MODE=backtest` con `TIMEFRAME=15m` hace el barrido sobre velas de 15m. A 15m el stop en % es mayor y las comisiones pesan menos,
 pero eso no garantiza ventaja: valida con train/test y semanas en `signals`.
 
+## Investigar estrategias de EMA (`STRATEGY=ema`, solo `RUN_MODE=backtest`)
+Barrido de ~140 variantes sobre los símbolos más líquidos, neto de costes, con train/test: cruce 2EMA (rápidas 9/12/20/21/34/50/100 ×
+lentas 21/34/50/100/200/300), filtro ADX≥20 y stop de 3×ATR, y la variante "precio vs EMA20" a favor de la tendencia (EMA50/100/200).
+Las órdenes se simulan a la apertura de la vela siguiente. Resultado en % por operación. Incluye tu 100/300 como referencia.
+Envía el ranking y `sweep_ema.json` por Telegram; si ninguna variante pasa train y test, lo dice. Variables en `RAILWAY_VARIABLES_EMA.env`.
+`2EMA_15m.pine` es una estrategia de TradingView con los mismos parámetros (cruce / EMA20, ADX, stop ATR, comisión, tamaño 10 % del
+equity y rango de fechas); **no está probada en TradingView**: sus valores por defecto son hipótesis.
+
 ## Estrategia 2: QS + SSMT 2 etapas + tCISD (`STRATEGY=qs`, 15m)
 Port del indicador Pine v6 homónimo: alineación de cuartos (Semanal-Diario-90m o Mensual-Semanal-Diario, hora de Nueva York,
 día de trading desde las 18:00) con suma 369 y/o cadena de cuartos iguales (con puente Q4↔Q1), **SSMT de 2 etapas** (ciclo elegido

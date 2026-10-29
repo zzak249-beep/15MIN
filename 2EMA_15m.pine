@@ -1,0 +1,71 @@
+//@version=6
+// ═══════════════════════════════════════════════════════════════════════════
+//  2EMA 15m · cruce de 2 EMA o precio vs EMA20 · stop ATR · filtro ADX
+//  AVISO: NO está validada. No la he podido compilar ni probar en TradingView,
+//  y los valores por defecto son hipótesis, no resultados medidos.
+//  Para medir de verdad usa el barrido del bot (STRATEGY=ema, RUN_MODE=backtest).
+//  Cada orden se ejecuta en la apertura de la vela siguiente a la señal.
+//  Cruce con filtro no cumplido = cierra la posición y espera (no abre).
+// ═══════════════════════════════════════════════════════════════════════════
+strategy("2EMA 15m · cruce / EMA20 · ATR stop · ADX", shorttitle="2EMA-15m", overlay=true,
+     initial_capital=1000, default_qty_type=strategy.percent_of_equity, default_qty_value=10,
+     commission_type=strategy.commission.percent, commission_value=0.05, slippage=2,
+     pyramiding=0, calc_on_every_tick=false, process_orders_on_close=false,
+     margin_long=20, margin_short=20)
+
+// ---------- Inputs ----------
+modeIn   = input.string("Cruce 2 EMA", "Modo", options=["Cruce 2 EMA", "Precio vs EMA20 (con tendencia)"])
+fastLen  = input.int(50,  "EMA rápida (modo cruce)", minval=2)
+slowLen  = input.int(200, "EMA lenta / de tendencia", minval=3)
+useAdx   = input.bool(true, "Filtro ADX en la señal")
+adxMin   = input.float(20.0, "ADX mínimo", minval=0.0, step=1.0)
+atrLen   = input.int(14, "ATR", minval=1)
+stopMult = input.float(3.0, "Stop (x ATR, 0 = sin stop)", minval=0.0, step=0.5)
+allowLong  = input.bool(true, "Permitir largos")
+allowShort = input.bool(true, "Permitir cortos")
+fromTime = input.time(timestamp("2024-01-01 00:00 +0000"), "Desde")
+toTime   = input.time(timestamp("2100-01-01 00:00 +0000"), "Hasta")
+
+// ---------- Cálculos ----------
+emaF  = ta.ema(close, fastLen)
+emaS  = ta.ema(close, slowLen)
+ema20 = ta.ema(close, 20)
+[diP, diM, adxV] = ta.dmi(14, 14)
+atr = ta.atr(atrLen)
+
+bool crossMode = modeIn == "Cruce 2 EMA"
+bool up = crossMode ? ta.crossover(emaF, emaS)  : ta.crossover(close, ema20)
+bool dn = crossMode ? ta.crossunder(emaF, emaS) : ta.crossunder(close, ema20)
+bool trendUp = crossMode or ema20 > emaS
+bool trendDn = crossMode or ema20 < emaS
+bool adxOk   = not useAdx or adxV >= adxMin
+bool okUp = trendUp and adxOk and allowLong
+bool okDn = trendDn and adxOk and allowShort
+bool inRange = time >= fromTime and time <= toTime
+
+// ---------- Entradas / cierres ----------
+if inRange
+    if up
+        if okUp
+            strategy.entry("L", strategy.long)
+        else
+            strategy.close_all(comment="cierra y espera")
+    if dn
+        if okDn
+            strategy.entry("S", strategy.short)
+        else
+            strategy.close_all(comment="cierra y espera")
+
+// ---------- Stop de ATR (con el ATR de la vela de señal) ----------
+var float entryAtr = na
+if strategy.position_size != 0 and math.sign(strategy.position_size) != math.sign(strategy.position_size[1])
+    entryAtr := atr[1]
+if stopMult > 0 and strategy.position_size > 0 and not na(entryAtr)
+    strategy.exit("SL L", "L", stop = strategy.position_avg_price - stopMult * entryAtr)
+if stopMult > 0 and strategy.position_size < 0 and not na(entryAtr)
+    strategy.exit("SL S", "S", stop = strategy.position_avg_price + stopMult * entryAtr)
+
+// ---------- Dibujo ----------
+plot(crossMode ? emaF : na, "EMA rápida", color=color.new(color.blue, 0), linewidth=2)
+plot(emaS, "EMA lenta", color=color.new(color.orange, 0), linewidth=2)
+plot(crossMode ? na : ema20, "EMA20", color=color.new(color.aqua, 0), linewidth=2)

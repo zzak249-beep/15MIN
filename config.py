@@ -99,13 +99,13 @@ class Config:
         self.kill_switch = _b("KILL_SWITCH", False)               # true = no abre operaciones nuevas
         self.live_confirm = _s("LIVE_CONFIRM", "")                # live exige LIVE_CONFIRM=SI
         self.strategy = _s("STRATEGY", "lce").lower()              # lce | qs
-        if self.strategy not in ("lce", "qs"):
-            raise ValueError("STRATEGY debe ser lce o qs")
-        self.timeframe = _s("TIMEFRAME", "15m" if self.strategy == "qs" else "5m")
+        if self.strategy not in ("lce", "qs", "ema"):
+            raise ValueError("STRATEGY debe ser lce, qs o ema")
+        self.timeframe = _s("TIMEFRAME", "15m" if self.strategy in ("qs", "ema") else "5m")
         if self.timeframe not in INTERVAL_MS:
             raise ValueError(f"TIMEFRAME no soportado: {self.timeframe}")
         # el bot LCE de 5m conserva lce_state.json; otros timeframes usan su propio archivo
-        default_state = ("qs_state.json" if self.strategy == "qs"
+        default_state = ("qs_state.json" if self.strategy == "qs" else "ema_state.json" if self.strategy == "ema"
                          else "lce_state.json" if self.timeframe == "5m" else f"lce_{self.timeframe}_state.json")
         self.state_file = _s("STATE_FILE", default_state)
         self.bot_name = _s("BOT_NAME", f"{self.strategy.upper()} {self.timeframe}")
